@@ -1,47 +1,36 @@
 (function() {
     const AI_CONFIGS = {
-        'ds': {
-            name: 'DeepSeek',
-            selectors: ['textarea', '[contenteditable="true"]', '#chat-input'],
-            button: 'button[type="submit"], button.ds-send-button'
-        },
-        'c': {
-            name: 'ChatGPT',
-            selectors: ['#prompt-textarea', 'textarea'],
-            button: 'button[data-testid="send-button"]'
-        },
-        'g': {
-            name: 'Gemini',
-            selectors: ['div.ql-editor[contenteditable="true"]', 'textarea'],
-            button: 'button[aria-label="Send message"]'
-        },
-        'x': {
-            name: 'Grok',
-            selectors: ['textarea', '[role="textbox"]'],
-            button: 'button[aria-label="Grok it"], button[type="submit"]'
-        }
+        'ds': { name: 'DeepSeek', selectors: ['textarea', '[contenteditable="true"]', '#chat-input'], button: 'button[type="submit"]' },
+        'c': { name: 'ChatGPT', selectors: ['#prompt-textarea', 'textarea'], button: 'button[data-testid="send-button"]' },
+        'g': { name: 'Gemini', selectors: ['div.ql-editor', 'textarea'], button: 'button[aria-label="Send message"]' },
+        'x': { name: 'Grok', selectors: ['textarea', '[role="textbox"]'], button: 'button[aria-label="Grok it"]' }
     };
 
-    async function getTask() {
-        // Check URL first
-        const params = new URLSearchParams(window.location.search);
-        const urlParam = params.get('pending_url');
-        const aiParam = params.get('pending_ai');
-        if (urlParam && aiParam) return { url: urlParam, ai: aiParam };
-
-        // Check storage
-        const data = await chrome.storage.local.get('pending_ai_task');
-        return data.pending_ai_task;
+    function getSmartPrompt(url) {
+        const u = url.toLowerCase();
+        if (u.includes('github.com') || u.includes('gitlab.com')) {
+            return `Please analyze this code repository: ${url}\n\nProvide an architecture overview and explain the main logic.`;
+        }
+        if (u.includes('youtube.com') || u.includes('youtu.be')) {
+            return `Please summarize this video: ${url}\n\nList the key takeaways and main points discussed.`;
+        }
+        if (u.includes('wikipedia.org') || u.includes('medium.com') || u.includes('news')) {
+            return `Please summarize this article/page: ${url}\n\nProvide a concise 3-bullet point summary.`;
+        }
+        if (u.includes('huggingface.co')) {
+            return `Please explain this AI model/dataset: ${url}\n\nWhat is its primary use case and performance?`;
+        }
+        // Default prompt for any other site
+        return `Please analyze this website: ${url}\n\nSummarize the content and tell me what the main purpose of this page is.`;
     }
 
     async function automate() {
-        const task = await getTask();
+        const data = await chrome.storage.local.get('pending_ai_task');
+        const task = data.pending_ai_task;
         if (!task) return;
 
         const config = AI_CONFIGS[task.ai];
         if (!config) return;
-
-        console.log(`[AI-Bridge] Automating ${config.name} for:`, task.url);
 
         let inputArea = null;
         for (const selector of config.selectors) {
@@ -50,20 +39,16 @@
         }
 
         if (inputArea) {
-            const prompt = `Please analyze this repository: ${task.url}\n\nProvide a high-level overview, architecture details, and key features.`;
+            const prompt = getSmartPrompt(task.url);
             
-            // Inject text
-            if (inputArea.tagName === 'TEXTAREA' || inputArea.tagName === 'INPUT') {
+            if (inputArea.tagName === 'TEXTAREA') {
                 inputArea.value = prompt;
             } else {
                 inputArea.innerText = prompt;
             }
 
-            // Trigger events
             inputArea.dispatchEvent(new Event('input', { bubbles: true }));
-            inputArea.dispatchEvent(new Event('change', { bubbles: true }));
-
-            // Find button
+            
             const sendButton = document.querySelector(config.button) || 
                                document.querySelector('button[type="submit"]') ||
                                document.querySelector('div[role="button"] svg')?.closest('button');
@@ -72,13 +57,11 @@
                 setTimeout(async () => {
                     sendButton.click();
                     await chrome.storage.local.remove('pending_ai_task');
-                    // Clean URL
                     const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
                     window.history.replaceState({}, '', cleanUrl);
                 }, 1000);
             }
         } else {
-            // Retry (page might be loading)
             setTimeout(automate, 2000);
         }
     }
