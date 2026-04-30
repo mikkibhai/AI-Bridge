@@ -1,0 +1,43 @@
+{
+  "manifest_version": 3,
+  "name": "AI Bridge: Universal Shortcut",
+  "version": "2.0",
+  "description": "Shortcuts (DS, C, G, X) to analyze GitHub/GitLab on DeepSeek, ChatGPT, Gemini, and Grok.",
+  "permissions": [
+    "declarativeNetRequest",
+    "storage",
+    "webNavigation"
+  ],
+  "host_permissions": [
+    "*://dsgithub.com/*", "*://cgithub.com/*", "*://ggithub.com/*", "*://xgithub.com/*",
+    "*://dsgitlab.com/*", "*://cgitlab.com/*", "*://ggitlab.com/*", "*://xgitlab.com/*",
+    "*://dsbitbucket.com/*", "*://cbitbucket.com/*", "*://gbitbucket.com/*", "*://xbitbucket.com/*",
+    "*://dshuggingface.co/*", "*://chuggingface.co/*", "*://ghuggingface.co/*", "*://xhuggingface.co/*",
+    "https://chat.deepseek.com/*",
+    "https://chatgpt.com/*",
+    "https://gemini.google.com/*",
+    "https://grok.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chat.deepseek.com/*",
+        "https://chatgpt.com/*",
+        "https://gemini.google.com/*",
+        "https://grok.com/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "declarative_net_request": {
+    "rule_resources": [{
+      "id": "ruleset_1",
+      "enabled": true,
+      "path": "rules.json"
+    }]
+  }
+}
